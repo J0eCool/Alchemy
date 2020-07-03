@@ -1,2 +1,12 @@
 hello = fn
     'Hello';
+
+comments are just non-parsed things!
+only thing is comments must be terminated by a ;
+
+hello-world = fn
+    + (hello) 'world';
+
+main program is the final non-terminated statement;
+
+print (hello-world)
