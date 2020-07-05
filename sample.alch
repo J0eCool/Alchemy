@@ -7,8 +7,9 @@ hello = fn
 All statements are executed in the order they are presented,
 though declarations are order-independent;
 
-print (hello);
+print 'Oh no';
+print $hello;
 
 hello-world = fn
-    + (hello) 'world';
+    $hello + 'world';
 
