@@ -24,8 +24,6 @@ class Declaration:
     name: string
     expr: Expression
 
-class UnknownExpression: Expression
-    tokens: [string]
 class Function: Expression
     decls: [Declaration]
     expr: Expression
@@ -93,49 +91,40 @@ def parse_expr(tokens) -> Expression?:
     if tokens.length == 1:
         if head[0] == '\'':
             return StringLiteral { head.substring(1, head.length - 2) }
-        else:
-            return Identifier { head }
     else: if tokens.length > 1:
         if head == "fn":
             let expr = parse_expr(tokens.drop(1))
             if expr:
-                return Function {
-                    decls: [],
-                    expr: expr,
-                }
-        else:
-            // function call
-            let parts = []
-            var i = 0
-            def try_push(ex):
-                if ex:
-                    parts.push(ex)
-                else:
-                    return nil from parse_expr
-            while i < tokens.length:
-                if tokens[i] == "(":
-                    i++
-                    var len = 0
-                    while tokens[i+len] != ")":
-                        len++
-                    try_push(parse_expr(tokens.slice(i, len)))
+                return Function { [], expr }
+            else:
+                return nil
+        // function call
+        let parts = []
+        var i = 0
+        def try_push(ex):
+            if ex:
+                parts.push(ex)
+            else:
+                return nil from parse_expr
+        while i < tokens.length:
+            if tokens[i] == "(":
+                i++
+                var len = 0
+                while tokens[i+len] != ")":
+                    len++
+                let expr = parse_expr(tokens.slice(i, len))
+                if expr:
+                    parts.push(expr)
                     i += len+1
-                else: if tokens[i] == "$":
-                    try_push(Call { Identifier { tokens[i+1] }, []})
-                    i += 2
                 else:
-                    try_push(parse_expr(tokens.slice(i, 1)))
-                    i++
-            return Call { parts[0], parts.drop(1) }
-        //     if head == "(":
-        //     var i = 1
-        //     while tokens[i] != ")":
-        //         i++
-        //     let 
-        // else: if head == "print":
-        //     let expr = parse_expr(tokens.drop(1))
-        //     if expr:
-        //         return PrintExpression { expr }
+                    return nil
+            else: if tokens[i] == "$":
+                parts.push(Call { Identifier { tokens[i+1] }, []})
+                i += 2
+            else:
+                parts.push(Identifier { tokens[i] })
+                i++
+        return Call { parts[0], parts.drop(1) }
     return nil
 
 def parse(tokens):
