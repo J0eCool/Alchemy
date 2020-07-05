@@ -205,23 +205,19 @@ def lookup(prog, name):
     return nil
 
 def validate(expr: Function, prog) -> IExpr?:
-    print "Validating: " + expr
-    // decls: [Declaration]
-    // expr: Expression
+    let valid = expr.expr.validate(prog)
+    if valid:
+        return IFunc { valid }
     return nil
 def validate(expr: StringLiteral, prog) -> IExpr?:
-    print "Validating: " + expr
     return ILit { i_str(expr.val) }
 def validate(expr: Identifier, prog) -> IExpr?:
-    print "Validating: " + expr
     let sym = prog.lookup(expr.name)
     if sym:
         return IIdent { sym }
     return nil
 def validate(expr: Call, prog) -> IExpr?:
-    print "Validating: " + expr
     let callee = expr.callee.validate(prog)
-    print "  callee: " + callee
     if callee:
         let args = []
         for(expr.args) arg:
@@ -233,28 +229,66 @@ def validate(expr: Call, prog) -> IExpr?:
         return ICall { callee, args }
     return nil
 
-def validate(base_prog):
+def interpreter_builtins():
     let builtins = []
     def builtin(name, func):
         builtins.push(ISym { name, IBuiltin { func } })
+
     builtin("print") args:
-        print args[0]
+        let val = args[0]
+        switch val.kind:
+            case v_unit:
+                print "()"
+            case v_num:
+                print val.num_val
+            case v_str:
+                print val.str_val
         i_unit()
 
-    let prog = IProg { builtins, [] }
+    return builtins
+
+def validate(base_prog):
+    let prog = IProg { interpreter_builtins(), [] }
     for(base_prog.decls) decl:
         let valid = decl.expr.validate(prog)
         if valid:
             prog.symbols.push(ISym { decl.name, valid })
 
     for(base_prog.exprs) expr:
-        print "EXPR"
         let valid = expr.validate(prog)
         if valid:
             prog.exprs.push(valid)
-        print valid
-        print "DONE\n"
     return prog
+
+def eval(expr: IExpr):
+    print "UNSUPPORTED EVAL: " + expr
+    assert(false)
+    return i_unit()
+def call(expr: IExpr, args):
+    print "UNSUPPORTED CALL: " + expr
+    assert(false)
+    return i_unit()
+
+def eval(expr: ICall):
+    return expr.callee.call(expr.args)
+def eval(expr: ILit):
+    return expr.val
+
+def call(expr: IIdent, args):
+    return expr.sym.expr.call(args)
+def call(expr: IBuiltin, args):
+    let vals = []
+    for(args) arg:
+        vals.push(arg.eval())
+    let f = expr.func
+    return f(vals)
+def call(expr: IFunc, args):
+    // TODO: args lol
+    return expr.expr.eval()
+
+def run(prog):
+    for(prog.exprs) expr:
+        expr.eval()
 
 // DRIVER -----------------------
 
@@ -264,4 +298,4 @@ let contents = assert(read_file(infile))
 let tokens = lex(contents)
 let ast = parse(tokens)
 let prog = validate(ast)
-print prog
+prog.run()
