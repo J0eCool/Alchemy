@@ -91,7 +91,9 @@ def parse_expr(tokens) -> Expression?:
     if tokens.length == 1:
         if head[0] == '\'':
             return StringLiteral { head.substring(1, head.length - 2) }
-    else: if tokens.length > 1:
+        else:
+            return Identifier { head }
+    else:
         if head == "fn":
             let expr = parse_expr(tokens.drop(1))
             if expr:
@@ -122,8 +124,12 @@ def parse_expr(tokens) -> Expression?:
                 parts.push(Call { Identifier { tokens[i+1] }, []})
                 i += 2
             else:
-                parts.push(Identifier { tokens[i] })
-                i++
+                let expr = parse_expr(tokens.slice(i, 1))
+                if expr:
+                    parts.push(expr)
+                    i++
+                else:
+                    return nil
         return Call { parts[0], parts.drop(1) }
     return nil
 
@@ -149,6 +155,107 @@ def parse(tokens):
         // All unmatched patterns are discarded
     return ret
 
+// INTERPRETER ------------------
+
+// can be executed to produce a value
+class IExpr
+
+// a runtime value
+enum IValKind:
+    v_unit
+    v_num
+    v_str
+class IVal:
+    kind: IValKind
+    num_val: float
+    str_val: string
+
+class ISym:
+    name: string
+    expr: IExpr
+class IProg:
+    symbols: [ISym]
+    exprs: [IExpr]
+
+class IFunc: IExpr
+    expr: IExpr
+class ILit: IExpr
+    val: IVal
+class IIdent: IExpr
+    sym: ISym
+class ICall: IExpr
+    callee: IExpr
+    args: [IExpr]
+
+def builtin_fn(args: [IVal]) -> IVal
+class IBuiltin: IExpr
+    func: builtin_fn
+
+def i_unit():
+    return IVal { v_unit, 0, "" }
+def i_num(num):
+    return IVal { v_num, num, "" }
+def i_str(str):
+    return IVal { v_str, 0, str }
+
+def lookup(prog, name):
+    for(prog.symbols) sym:
+        if sym.name == name:
+            return sym
+    return nil
+
+def validate(expr: Function, prog) -> IExpr?:
+    print "Validating: " + expr
+    // decls: [Declaration]
+    // expr: Expression
+    return nil
+def validate(expr: StringLiteral, prog) -> IExpr?:
+    print "Validating: " + expr
+    return ILit { i_str(expr.val) }
+def validate(expr: Identifier, prog) -> IExpr?:
+    print "Validating: " + expr
+    let sym = prog.lookup(expr.name)
+    if sym:
+        return IIdent { sym }
+    return nil
+def validate(expr: Call, prog) -> IExpr?:
+    print "Validating: " + expr
+    let callee = expr.callee.validate(prog)
+    print "  callee: " + callee
+    if callee:
+        let args = []
+        for(expr.args) arg:
+            let valid = arg.validate(prog)
+            if valid:
+                args.push(valid)
+            else:
+                return nil
+        return ICall { callee, args }
+    return nil
+
+def validate(base_prog):
+    let builtins = []
+    def builtin(name, func):
+        builtins.push(ISym { name, IBuiltin { func } })
+    builtin("print") args:
+        print args[0]
+        i_unit()
+
+    let prog = IProg { builtins, [] }
+    for(base_prog.decls) decl:
+        let valid = decl.expr.validate(prog)
+        if valid:
+            prog.symbols.push(ISym { decl.name, valid })
+
+    for(base_prog.exprs) expr:
+        print "EXPR"
+        let valid = expr.validate(prog)
+        if valid:
+            prog.exprs.push(valid)
+        print valid
+        print "DONE\n"
+    return prog
+
 // DRIVER -----------------------
 
 let infile = "sample.alch"
@@ -156,4 +263,5 @@ let infile = "sample.alch"
 let contents = assert(read_file(infile))
 let tokens = lex(contents)
 let ast = parse(tokens)
-print ast
+let prog = validate(ast)
+print prog
