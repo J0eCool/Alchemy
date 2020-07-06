@@ -287,8 +287,12 @@ def call(expr: IFunc, args):
     return expr.expr.eval()
 
 def run(prog):
+    def discard(x):
+        return
     for(prog.exprs) expr:
-        expr.eval()
+        // Need to do something with these eval'd values
+        // so Lobster doesn't think we're leaking them
+        discard(expr.eval())
 
 // DRIVER -----------------------
 
