@@ -197,14 +197,16 @@ enum IValKind:
     v_num
     v_str
     v_fn
+    v_fn_ex
 class IVal:
     kind: IValKind
     num_val: float
     str_val: string
     fn_val: fn_val_ty
+    fn_ex_val: IFunc?
 
 def base_base_val(f):
-    return IVal { v_unit, 0, "", f }
+    return IVal { v_unit, 0, "", f, nil }
 def i_unit() -> IVal:
     return base_base_val() args:
         i_unit()
@@ -223,6 +225,11 @@ def i_fn(f):
     let ret = i_unit()
     ret.kind = v_fn
     ret.fn_val = f
+    return ret
+def i_fn_ex(expr):
+    let ret = i_unit()
+    ret.kind = v_fn_ex
+    ret.fn_ex_val = expr
     return ret
 
 def lookup(prog, name):
@@ -272,6 +279,8 @@ def interpreter_builtins():
                 print val.str_val
             case v_fn:
                 print "<func>"
+            case v_fn_ex:
+                print "<func-Ex>"
         i_unit()
 
     return builtins
@@ -294,13 +303,36 @@ def eval(expr: IExpr):
     assert(false)
     return i_unit()
 
+def getSymName(expr: IExpr):
+    print "UNSUPPORTED SYM NAME: " + expr
+    assert(false)
+    return ""
+def getSymName(expr: IIdent):
+    return expr.sym.name
+
 def call(val, args):
-    assert(val.kind == v_fn)
-    let vals = []
-    for(args) arg:
-        vals.push(arg.eval())
-    let f = val.fn_val
-    return f(vals)
+    if val.kind == v_fn:
+        let vals = []
+        for(args) arg:
+            vals.push(arg.eval())
+        let f = val.fn_val
+        return f(vals)
+    else: if val.kind == v_fn_ex:
+        let ex = val.fn_ex_val
+        assert(ex)
+        return ex.expr.eval()
+    else:
+        assert(args.length >= 1)
+        let next = args[0]
+        let name = next.getSymName()
+
+        // hardcoded for now
+        assert name == "+"
+        assert args.length == 2
+        assert val.kind == v_str
+        let other = args[1].eval()
+        assert other.kind == v_str
+        return i_str(val.str_val + other.str_val)
 
 def eval(expr: ICall):
     let val = expr.callee.eval()
@@ -312,12 +344,7 @@ def eval(expr: IIdent):
 def eval(expr: IBuiltin):
     return i_fn(expr.func)
 def eval(expr: IFunc):
-    let ex = expr.expr
-    return i_fn() args:
-        // oh bother
-        print "doing our best ok: " + ex
-        i_unit()
-        // expr.expr.eval()
+    return i_fn_ex(expr)
 
 def run(prog):
     def discard(x):
