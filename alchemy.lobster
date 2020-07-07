@@ -50,7 +50,12 @@ def lex(text):
     var i = 0
     while i < text.length:
         let head = text[i]
-        if head.is_whitespace():
+        if head == '/' and text[i+1] == '/':
+            // comments
+            i += 2
+            while text[i] != '\n':
+                i++
+        else: if head.is_whitespace():
             // ignore whitespace
             i++
         else: if head == '\'':
@@ -159,16 +164,8 @@ def parse(tokens):
 
 // can be executed to produce a value
 class IExpr
-
 // a runtime value
-enum IValKind:
-    v_unit
-    v_num
-    v_str
-class IVal:
-    kind: IValKind
-    num_val: float
-    str_val: string
+class IVal
 
 class ISym:
     name: string
@@ -187,22 +184,52 @@ class ICall: IExpr
     callee: IExpr
     args: [IExpr]
 
-def builtin_fn(args: [IVal]) -> IVal
+def fn_val_ty(args: [IVal]) -> IVal
 class IBuiltin: IExpr
-    func: builtin_fn
+    func: fn_val_ty
 
-def i_unit():
-    return IVal { v_unit, 0, "" }
+
+// useful for epxressions not meant to be executed; e.g. unresolved symbols
+class IInvalid: IExpr
+
+enum IValKind:
+    v_unit
+    v_num
+    v_str
+    v_fn
+class IVal:
+    kind: IValKind
+    num_val: float
+    str_val: string
+    fn_val: fn_val_ty
+
+def base_base_val(f):
+    return IVal { v_unit, 0, "", f }
+def i_unit() -> IVal:
+    return base_base_val() args:
+        i_unit()
+
 def i_num(num):
-    return IVal { v_num, num, "" }
+    let ret = i_unit()
+    ret.kind = v_num
+    ret.num_val = num
+    return ret
 def i_str(str):
-    return IVal { v_str, 0, str }
+    let ret = i_unit()
+    ret.kind = v_str
+    ret.str_val = str
+    return ret
+def i_fn(f):
+    let ret = i_unit()
+    ret.kind = v_fn
+    ret.fn_val = f
+    return ret
 
 def lookup(prog, name):
     for(prog.symbols) sym:
         if sym.name == name:
             return sym
-    return nil
+    return ISym { name, IInvalid{} }
 
 def validate(expr: Function, prog) -> IExpr?:
     let valid = expr.expr.validate(prog)
@@ -243,6 +270,8 @@ def interpreter_builtins():
                 print val.num_val
             case v_str:
                 print val.str_val
+            case v_fn:
+                print "<func>"
         i_unit()
 
     return builtins
@@ -264,27 +293,31 @@ def eval(expr: IExpr):
     print "UNSUPPORTED EVAL: " + expr
     assert(false)
     return i_unit()
-def call(expr: IExpr, args):
-    print "UNSUPPORTED CALL: " + expr
-    assert(false)
-    return i_unit()
 
-def eval(expr: ICall):
-    return expr.callee.call(expr.args)
-def eval(expr: ILit):
-    return expr.val
-
-def call(expr: IIdent, args):
-    return expr.sym.expr.call(args)
-def call(expr: IBuiltin, args):
+def call(val, args):
+    assert(val.kind == v_fn)
     let vals = []
     for(args) arg:
         vals.push(arg.eval())
-    let f = expr.func
+    let f = val.fn_val
     return f(vals)
-def call(expr: IFunc, args):
-    // TODO: args lol
-    return expr.expr.eval()
+
+def eval(expr: ICall):
+    let val = expr.callee.eval()
+    return val.call(expr.args)
+def eval(expr: ILit):
+    return expr.val
+def eval(expr: IIdent):
+    return expr.sym.expr.eval()
+def eval(expr: IBuiltin):
+    return i_fn(expr.func)
+def eval(expr: IFunc):
+    let ex = expr.expr
+    return i_fn() args:
+        // oh bother
+        print "doing our best ok: " + ex
+        i_unit()
+        // expr.expr.eval()
 
 def run(prog):
     def discard(x):
@@ -301,5 +334,7 @@ let infile = "sample.alch"
 let contents = assert(read_file(infile))
 let tokens = lex(contents)
 let ast = parse(tokens)
+print ast
 let prog = validate(ast)
+print prog
 prog.run()
