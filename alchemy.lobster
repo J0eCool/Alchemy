@@ -163,94 +163,76 @@ def parse(tokens):
 // INTERPRETER ------------------
 
 // can be executed to produce a value
-class IExpr
-// a runtime value
-class IVal
+class IVal:
+    def to_str():
+        assert(false)
+        return ""
+    def getSymName():
+        print "UNSUPPORTED SYM NAME: " + this
+        assert(false)
+        return ""
 
 class ISym:
     name: string
-    expr: IExpr
+    expr: IVal
 class IProg:
     symbols: [ISym]
-    exprs: [IExpr]
+    exprs: [IVal]
 
-class IFunc: IExpr
-    expr: IExpr
-class ILit: IExpr
-    val: IVal
-class IIdent: IExpr
+class IUnit: IVal
+
+def eval(expr: IVal):
+    print "UNSUPPORTED EVAL: " + expr
+    assert(false)
+    return IUnit{}
+def call(expr: IVal, args):
+    print "UNSUPPORTED CALL: " + expr
+    assert(false)
+    return IUnit{}
+
+class INum: IVal
+    val: float
+    def eval():
+        return INum{val}
+class IStr: IVal
+    val: string
+    def eval():
+        return IStr{val}
+class IFunc: IVal
+    expr: IVal
+    def eval():
+        return IFunc{expr}
+class IIdent: IVal
     sym: ISym
-class ICall: IExpr
-    callee: IExpr
-    args: [IExpr]
+    def getSymName():
+        return sym.name
+class ICall: IVal
+    callee: IVal
+    args: [IVal]
 
 def fn_val_ty(args: [IVal]) -> IVal
-class IBuiltin: IExpr
+class IBuiltin: IVal
     func: fn_val_ty
-
-
-// useful for epxressions not meant to be executed; e.g. unresolved symbols
-class IInvalid: IExpr
-
-enum IValKind:
-    v_unit
-    v_num
-    v_str
-    v_fn
-    v_fn_ex
-class IVal:
-    kind: IValKind
-    num_val: float
-    str_val: string
-    fn_val: fn_val_ty
-    fn_ex_val: IFunc?
-
-def base_base_val(f):
-    return IVal { v_unit, 0, "", f, nil }
-def i_unit() -> IVal:
-    return base_base_val() args:
-        i_unit()
-
-def i_num(num):
-    let ret = i_unit()
-    ret.kind = v_num
-    ret.num_val = num
-    return ret
-def i_str(str):
-    let ret = i_unit()
-    ret.kind = v_str
-    ret.str_val = str
-    return ret
-def i_fn(f):
-    let ret = i_unit()
-    ret.kind = v_fn
-    ret.fn_val = f
-    return ret
-def i_fn_ex(expr):
-    let ret = i_unit()
-    ret.kind = v_fn_ex
-    ret.fn_ex_val = expr
-    return ret
 
 def lookup(prog, name):
     for(prog.symbols) sym:
         if sym.name == name:
             return sym
-    return ISym { name, IInvalid{} }
+    return ISym { name, IUnit{} }
 
-def validate(expr: Function, prog) -> IExpr?:
+def validate(expr: Function, prog) -> IVal?:
     let valid = expr.expr.validate(prog)
     if valid:
         return IFunc { valid }
     return nil
-def validate(expr: StringLiteral, prog) -> IExpr?:
-    return ILit { i_str(expr.val) }
-def validate(expr: Identifier, prog) -> IExpr?:
+def validate(expr: StringLiteral, prog) -> IVal?:
+    return IStr { expr.val }
+def validate(expr: Identifier, prog) -> IVal?:
     let sym = prog.lookup(expr.name)
     if sym:
         return IIdent { sym }
     return nil
-def validate(expr: Call, prog) -> IExpr?:
+def validate(expr: Call, prog) -> IVal?:
     let callee = expr.callee.validate(prog)
     if callee:
         let args = []
@@ -270,18 +252,8 @@ def interpreter_builtins():
 
     builtin("print") args:
         let val = args[0]
-        switch val.kind:
-            case v_unit:
-                print "()"
-            case v_num:
-                print val.num_val
-            case v_str:
-                print val.str_val
-            case v_fn:
-                print "<func>"
-            case v_fn_ex:
-                print "<func-Ex>"
-        i_unit()
+        print val.to_str()
+        IUnit{}
 
     return builtins
 
@@ -298,17 +270,6 @@ def validate(base_prog):
             prog.exprs.push(valid)
     return prog
 
-def eval(expr: IExpr):
-    print "UNSUPPORTED EVAL: " + expr
-    assert(false)
-    return i_unit()
-
-def getSymName(expr: IExpr):
-    print "UNSUPPORTED SYM NAME: " + expr
-    assert(false)
-    return ""
-def getSymName(expr: IIdent):
-    return expr.sym.name
 
 def call(val, args):
     if val.kind == v_fn:
@@ -348,10 +309,10 @@ def eval(expr: IFunc):
 
 def run(prog):
     def discard(x):
-        return
-    for(prog.exprs) expr:
         // Need to do something with these eval'd values
         // so Lobster doesn't think we're leaking them
+        return
+    for(prog.exprs) expr:
         discard(expr.eval())
 
 // DRIVER -----------------------
