@@ -10,6 +10,12 @@ def drop(list, n):
     let to_drop = max(list.length - n, 0)
     return list.slice(n, to_drop)
 
+def map(list, f):
+    let ret = []
+    for(list) x:
+        ret.push(f(x))
+    return ret
+
 // AST -------------------------
 
 // forward declarations
@@ -163,32 +169,38 @@ def parse(tokens):
 // INTERPRETER ------------------
 
 // can be executed to produce a value
+def unsupported(name, this, ret):
+    print "UNSUPPORTED " + name + ": " + this
+    assert(false)
+    return ret
 class IVal:
     def to_str():
-        assert(false)
-        return ""
+        return unsupported("to_str", this, "")
     def getSymName():
-        print "UNSUPPORTED SYM NAME: " + this
-        assert(false)
-        return ""
+        return unsupported("getSymName", this, "")
+
+    // simplifies current value
+    // - look up current identifier value
+    // - execute a Call node
+    def eval():
+        return unsupported("eval", this, IVal{})
+    // call current value with arguments
+    // - look up method on value and call that
+    // - execute a Func node
+    def call(args):
+        return unsupported("call", this, IVal{})
+
 
 class ISym:
     name: string
-    expr: IVal
+    val: IVal
 class IProg:
     symbols: [ISym]
-    exprs: [IVal]
+    vals: [IVal]
 
 class IUnit: IVal
-
-def eval(expr: IVal):
-    print "UNSUPPORTED EVAL: " + expr
-    assert(false)
-    return IUnit{}
-def call(expr: IVal, args):
-    print "UNSUPPORTED CALL: " + expr
-    assert(false)
-    return IUnit{}
+    def eval():
+        return IUnit{}
 
 class INum: IVal
     val: float
@@ -198,21 +210,48 @@ class IStr: IVal
     val: string
     def eval():
         return IStr{val}
+    def to_str():
+        return val
+    def call(args):
+        assert(args.length >= 1)
+        let next = args[0]
+        let name = next.getSymName()
+
+        // hardcoded for now
+        assert name == "+"
+        assert args.length == 2
+        let other = args[1].eval()
+        return IStr{val + other.to_str()}
 class IFunc: IVal
-    expr: IVal
+    val: IVal
     def eval():
-        return IFunc{expr}
+        return IFunc{val}
+    def call(args):
+        return val
 class IIdent: IVal
     sym: ISym
+    def eval():
+        return sym.val.eval()
     def getSymName():
         return sym.name
 class ICall: IVal
     callee: IVal
     args: [IVal]
+    // Note: don't eval args, 
+    def eval():
+        let base = callee.eval()
+        let ret = base.call(args)
+        return ret.eval()
 
 def fn_val_ty(args: [IVal]) -> IVal
 class IBuiltin: IVal
     func: fn_val_ty
+    def eval():
+        return IBuiltin{func}
+    def call(args):
+        let vals = map(args) x: eval(x)
+        let f = func
+        return f(vals)
 
 def lookup(prog, name):
     for(prog.symbols) sym:
@@ -265,55 +304,18 @@ def validate(base_prog):
             prog.symbols.push(ISym { decl.name, valid })
 
     for(base_prog.exprs) expr:
-        let valid = expr.validate(prog)
-        if valid:
-            prog.exprs.push(valid)
+        let val = expr.validate(prog)
+        if val:
+            prog.vals.push(val)
     return prog
-
-
-def call(val, args):
-    if val.kind == v_fn:
-        let vals = []
-        for(args) arg:
-            vals.push(arg.eval())
-        let f = val.fn_val
-        return f(vals)
-    else: if val.kind == v_fn_ex:
-        let ex = val.fn_ex_val
-        assert(ex)
-        return ex.expr.eval()
-    else:
-        assert(args.length >= 1)
-        let next = args[0]
-        let name = next.getSymName()
-
-        // hardcoded for now
-        assert name == "+"
-        assert args.length == 2
-        assert val.kind == v_str
-        let other = args[1].eval()
-        assert other.kind == v_str
-        return i_str(val.str_val + other.str_val)
-
-def eval(expr: ICall):
-    let val = expr.callee.eval()
-    return val.call(expr.args)
-def eval(expr: ILit):
-    return expr.val
-def eval(expr: IIdent):
-    return expr.sym.expr.eval()
-def eval(expr: IBuiltin):
-    return i_fn(expr.func)
-def eval(expr: IFunc):
-    return i_fn_ex(expr)
 
 def run(prog):
     def discard(x):
         // Need to do something with these eval'd values
         // so Lobster doesn't think we're leaking them
         return
-    for(prog.exprs) expr:
-        discard(expr.eval())
+    for(prog.vals) val:
+        discard(val.eval())
 
 // DRIVER -----------------------
 
