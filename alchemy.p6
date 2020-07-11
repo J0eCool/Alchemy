@@ -1,21 +1,44 @@
 # use Grammar::Tracer;
 
 grammar Alchemy {
-    token TOP { ^ <stmt>* $ }
-    rule stmt { <comment> | <assign> ';' | <call> ';' }
-    token comment { "//" .*? "\n" }
-    rule assign { <identifier> '=' <call> }
+    rule TOP { ^ <stmt>* $ }
 
-    rule call { (<expr> \s*)+ }
-    token expr { <single_call> | <func> | <literal> | <identifier> }
-    token identifier { <[\S] - [;]>+ }
-    token single_call { '$' <identifier> }
-    token literal { <lit_str> | <lit_num> }
-    token lit_str { "'" <-[']>* "'" }
-    token lit_num { \d+ }
-    token func { 'fn' \s+ <call> }
+    rule stmt {
+        | <call>
+    }
+    rule call {
+        <ident> <expr> ';'
+    }
+
+    rule expr {
+        | <string>
+        | <ident>
+    }
+    token string {
+        # capture contents between two quotes
+        \' (<-[']>*) \'
+    }
+    token ident {
+        <[\S] - [;]>+
+    }
+}
+
+my %vm;
+class AlchemyInterpret {
+    method call($/) {
+        if $<ident> eq 'print' {
+            print $<expr>.made
+        }
+    }
+
+    method expr($/) {
+        make $<string>.made
+    }
+    method string($/) {
+        make $/[0]
+    }
 }
 
 my $data = slurp "sample.alch";
-my $ast = Alchemy.parse($data);
-say $ast;
+my $ast = Alchemy.parse($data, :actions(AlchemyInterpret));
+# say $ast;

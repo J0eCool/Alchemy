@@ -1,15 +1,1 @@
-// Sample program
-
-hello = fn
-    'Hello';
-
-// All statements are executed in the order they are presented,
-// though declarations are order-independent
-
-print 'Oh no';
-print $hello;
-
-hello-world = fn
-    $hello + ' world';
-
-print $hello-world;
+print 'Hello world';
